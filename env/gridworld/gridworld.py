@@ -4,10 +4,15 @@ Created on Thu Jun 15 17:51:11 2017
 
 @author: yonic
 """
+
 import numpy as np
 
+ACTIONS = ['up','down','left','right']
+
+STATES = (10,7)
+
 class GridWorld:
-    def __init__(self,x=10,y=7,wind_obstacle=[0,0,0,1,1,1,2,2,1,0],\
+    def __init__(self,x=STATES[0],y=STATES[1],wind_obstacle=[0,0,0,1,1,1,2,2,1,0],\
                 start_width=0,start_height=3,
                 end_width=7,end_height=3):
         self.x = x
@@ -19,6 +24,9 @@ class GridWorld:
         self.goal_pos_width = end_width
         self.world = np.zeros((y,x))
         
+    def get_pos_flatten(self):
+        return self.agent_pos_height * STATES[1] + self.agent_pos_width
+         
     def make_pos_agent(self):
         return (self.agent_pos_height,self.agent_pos_width)
         
@@ -34,13 +42,15 @@ class GridWorld:
         world[pos_goal] = 1
         print world
         
-    def get_state(self):
+    def get_state_and_reward(self):
         if self.agent_pos == self.end:
-            R = 1
-        else:
             R = 0
+        else:
+            R = -1
         
-        return self.agent_pos,R 
+        state = self.get_pos_flatten()
+        
+        return state, R 
         
         
     def move(self,action):
