@@ -25,7 +25,7 @@ class GridWorld:
         self.world = np.zeros((y,x))
         
     def get_pos_flatten(self):
-        return self.agent_pos_height * STATES[1] + self.agent_pos_width
+        return self.agent_pos_height * STATES[0] + self.agent_pos_width
          
     def make_pos_agent(self):
         return (self.agent_pos_height,self.agent_pos_width)
@@ -43,7 +43,8 @@ class GridWorld:
         print world
         
     def get_state_and_reward(self):
-        if self.agent_pos == self.end:
+        if (self.agent_pos_height == self.goal_pos_height) and \
+            (self.agent_pos_width == self.goal_pos_width):
             R = 0
         else:
             R = -1
@@ -68,17 +69,18 @@ class GridWorld:
                                                         
         if action == 'up':
             self.agent_pos_height -=1
-            print self.agent_pos_height
         elif action == 'down':
             self.agent_pos_height += 1
         elif action == 'left':
             self.agent_pos_width -= 1
+            clip()
             self.agent_pos_height += self.wind_obstacle[self.agent_pos_width]
         elif action == 'right':
             self.agent_pos_width += 1
+            clip()
             self.agent_pos_height += self.wind_obstacle[self.agent_pos_width]
         else:
             raise Exception("Not known action")
-        
+                 
         clip()
         
