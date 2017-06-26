@@ -17,12 +17,13 @@ class GridWorld:
                 end_width=7,end_height=3):
         self.x = x
         self.y = y
-        self.wind_obstacle=wind_obstacle
+        self.wind_obstacle = wind_obstacle
         self.agent_pos_height = start_height
         self.agent_pos_width = start_width
         self.goal_pos_height = end_height
         self.goal_pos_width = end_width
         self.world = np.zeros((y,x))
+        self.init_world()
         
     def get_pos_flatten(self):
         return self.agent_pos_height * STATES[0] + self.agent_pos_width
@@ -33,14 +34,28 @@ class GridWorld:
     def make_pos_goal(self):
         return (self.goal_pos_height,self.goal_pos_width)
               
-    def print_world(self):        
-        world = np.zeros((self.y, self.x))
+    def init_world(self):        
+        self.world = np.zeros((self.y, self.x))
         pos_agent = self.make_pos_agent()
-        world[pos_agent] = np.NaN
+        self.world[pos_agent] = np.NaN
         
         pos_goal = self.make_pos_goal()
-        world[pos_goal] = 1
-        print world
+        self.world[pos_goal] = 1
+        
+        
+    def print_one_step_solution(self,q,is_trace=False):
+        if not is_trace:
+            self.init_world()
+            
+        state,reward = self.get_state_and_reward()
+        pos_agent = self.make_pos_agent()
+        print pos_agent
+        self.world[pos_agent] = 6
+        action = np.argmax(q.ix[state,:])
+        print action
+        self.move(action)
+        print self.world
+            
         
     def get_state_and_reward(self):
         if (self.agent_pos_height == self.goal_pos_height) and \

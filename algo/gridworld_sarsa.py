@@ -7,6 +7,7 @@ Created on Sun Jun 18 21:18:13 2017
 
 import numpy as np
 import pandas as pd
+import cPickle as pickle
 import rf_learn.env.gridworld.gridworld as gw
 
 def get_best_action(Q,s):
@@ -28,17 +29,22 @@ class gw_sarsa:
         self.max_state = gw.STATES[0] * gw.STATES[1]
         self.max_action = len(gw.ACTIONS)
         self.Q = pd.DataFrame(np.zeros((self.max_state,self.max_action)),columns=gw.ACTIONS)
+        self.df = pd.DataFrame(columns=['episods'])
+        self.episod = 0
+        self.iteration = 0
+    
+    def save_q(self,fname):
+        with open(fname,'wb') as fd:
+            pickle.dump(self.Q,fd)
         
         
     def sarsa(self,alpha,lamda,episod_num):
-        g = gw.GridWorld()
-        s = g.get_pos_flatten()
-        a = 'right'
         
-        while episod_num > 0:
-            episod_num -= 1
-            E = pd.DataFrame(np.zeros((self.max_state,self.max_action)),columns=gw.ACTIONS)
-            iteration = 0
+        while self.episod < episod_num:
+            g = gw.GridWorld()
+            s = g.get_pos_flatten()
+            a = choice_gready(self.Q,s)
+            E = pd.DataFrame(np.zeros((self.max_state,self.max_action)),columns=gw.ACTIONS)            
             while True:
                 g.move(a)
                 s_prime,r = g.get_state_and_reward()
@@ -51,10 +57,21 @@ class gw_sarsa:
                         E.ix[i,j] = lamda * E.ix[i,j]
                 s = s_prime
                 a = a_prime
-                iteration += 1
+                self.iteration += 1
+                self.df.loc[self.iteration] = [self.episod]
                 if r == 0:
-                    print "Episode %d is finishing in iteration: %d" % (episod_num,iteration)
-                    break       
+                    print "Episode %d is finishing in iteration: %d" % (self.episod,self.iteration)
+                    break
+               
+            self.episod += 1
+        return self.df
+        
+def main():
+    g = gw_sarsa()
+    df = g.sarsa(alpha=0.1,lamda=0.5,episod_num=200)
+    g.save_q(fname='C:\\Users\\yonic\\projects\\gridworld\\q.bin')
+    return g
+        
         
         
         
