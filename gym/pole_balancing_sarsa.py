@@ -17,10 +17,10 @@ import pandas as pd
 import cPickle as pickle
 import gym
 
-XMAX = 6
-YMAX = 6
-ZMAX = 6
-KMAX = 6
+XMAX = 3
+YMAX = 3
+ZMAX = 5
+KMAX = 3
 DISCRETE_OBSERVATION_SPACE_MAX = XMAX*YMAX*ZMAX*KMAX
 ACTION_NUM = 2
 ACTIONS = range(ACTION_NUM)
@@ -28,7 +28,7 @@ ACTIONS = range(ACTION_NUM)
 def get_best_action(Q,observation_discrete):
     return np.argmax(Q.ix[observation_discrete,:])
     
-def choice_gready(Q,observation_discrete,e=0.01):
+def choice_gready(Q,observation_discrete,e=0.1):
     p = np.random.uniform()
     if p < e:
         return np.random.choice(ACTIONS,1)[0]
@@ -45,8 +45,11 @@ def make_discrete_space(observation):
     low = observation.low
     space = np.array([])
     space = []
+    dim = [XMAX,YMAX,ZMAX,KMAX]
+    i = 0
     for l,h in zip(low,high):
-        space.append(np.linspace(l,h,6))
+        space.append(np.linspace(l,h,dim[i]))
+        i += 1
     return space
 
 def convert_to_discrete_state(observation,discrete_space):
@@ -57,8 +60,18 @@ def convert_to_discrete_state(observation,discrete_space):
 
 def convert_to_flat(discrete_observation):
     x,y,z,k = discrete_observation
-    
-    return x+y*XMAX+z*YMAX+k*ZMAX
+    return x*YMAX*ZMAX*KMAX + y*ZMAX*KMAX +z*KMAX +k
+    #return x+y*XMAX+z*YMAX+k*ZMAX
+
+def test_space():
+    env = gym.make('CartPole-v0')
+    o = env.observation_space
+    discrete_space = make_discrete_space(o)
+    print discrete_space
+    s1 = convert_to_discrete_state(o.high,discrete_space)
+    s2 = convert_to_discrete_state(o.low,discrete_space)
+    print o.high,s1, convert_to_flat(s1)
+    print o.low,s2, convert_to_flat(s2)
     
 
 class mc_sarsa:
@@ -71,7 +84,8 @@ class mc_sarsa:
                 columns=ACTIONS)
         self.df = pd.DataFrame(columns=['episods'])
         self.episod = 0
-        self.iteration = 0
+        self.e = 0.999
+ 
 
 
     def save_q(self,fname):
@@ -81,18 +95,23 @@ class mc_sarsa:
         
     def sarsa(self,alpha,lamda,episod_num):
         while self.episod < episod_num:
+            iteration = 0
             observation = self.env.reset()
             s_discrete = convert_to_flat(convert_to_discrete_state(observation,self.discrete_space))
             a = choice_gready(self.Q,s_discrete)
             E = pd.DataFrame(np.zeros((\
                 DISCRETE_OBSERVATION_SPACE_MAX,\
                 ACTION_NUM)),\
-                columns=ACTIONS)            
+                columns=ACTIONS) 
+            if self.episod % 5 ==0:
+                self.e = self.e * self.e
+                
             while True:
                 observation_prime, r, done, info = self.env.step(a)
-                self.env.render()
+                #self.env.render()
                 s_prime_discrete = convert_to_flat(convert_to_discrete_state(observation_prime,self.discrete_space))
-                a_prime  = choice_gready(self.Q,s_prime_discrete)
+                print s_prime_discrete
+                a_prime  = choice_gready(self.Q,s_prime_discrete,self.e)
                 delta = r + self.Q.ix[s_prime_discrete,a_prime] - \
                     self.Q.ix[s_discrete,a]
                 E.ix[s_discrete,a] = E.ix[s_discrete,a] + 1
@@ -102,17 +121,37 @@ class mc_sarsa:
                         E.ix[i,j] = lamda * E.ix[i,j]
                 s_discrete = s_prime_discrete
                 a = a_prime
-                self.iteration += 1
-                self.df.loc[self.iteration] = [self.episod]
+                iteration += 1
+                self.df.loc[self.episod] = [iteration]
                 if done:
-                    print "Episode %d is finishing in iteration: %d" % (self.episod,self.iteration)
+                    print "Episode %d is finishing in iteration: %d, e:%f" % (self.episod,iteration,self.e)
                     break
                
             self.episod += 1
         return self.df
         
-def main():
+def full_main():
     g = mc_sarsa()
-    df = g.sarsa(alpha=0.1,lamda=0.5,episod_num=1)
-    #g.save_q(fname='C:\\Users\\yonic\\projects\\mountain_car\\q.bin')
+    df = g.sarsa(alpha=0.1,lamda=0.1,episod_num=600)
+    g.save_q(fname='C:\\Users\\yonic\\projects\\cart_pole\\q.bin')
     return g
+
+def part_main(g,episodes=100):
+    return g.sarsa(alpha=0.1,lamda=0.1,episod_num=episodes)
+
+def test_q(Q):
+    env = gym.make('CartPole-v0')
+    observation = env.reset()
+    discrete_space = make_discrete_space(env.observation_space)
+    iterations = 0
+    while True:
+        env.render()
+        d = convert_to_flat(convert_to_discrete_state(observation,discrete_space))
+        a = get_best_action(Q,d)
+        observation_prime, r, done, info = env.step(a)
+        if done:
+            break
+        iterations += 1
+        print iterations
+        observation = observation_prime
+    return iterations
