@@ -17,9 +17,9 @@ import pandas as pd
 import cPickle as pickle
 import gym
 
-XMAX = 3
-YMAX = 3
-ZMAX = 5
+XMAX = 1
+YMAX = 1
+ZMAX = 6
 KMAX = 3
 DISCRETE_OBSERVATION_SPACE_MAX = XMAX*YMAX*ZMAX*KMAX
 ACTION_NUM = 2
@@ -27,6 +27,9 @@ ACTIONS = range(ACTION_NUM)
 
 def get_best_action(Q,observation_discrete):
     return np.argmax(Q.ix[observation_discrete,:])
+    
+def get_max_q_value(Q,observation_discrete):
+    return np.max(Q.ix[observation_discrete,:])
     
 def choice_gready(Q,observation_discrete,e=0.1):
     p = np.random.uniform()
@@ -70,8 +73,10 @@ def test_space():
     print discrete_space
     s1 = convert_to_discrete_state(o.high,discrete_space)
     s2 = convert_to_discrete_state(o.low,discrete_space)
+    s3 = convert_to_discrete_state((o.low+o.high)/2,discrete_space)
     print o.high,s1, convert_to_flat(s1)
     print o.low,s2, convert_to_flat(s2)
+    print (o.low+o.high)/2,s3, convert_to_flat(s3)
     
 
 class mc_sarsa:
@@ -93,7 +98,7 @@ class mc_sarsa:
             pickle.dump(self.Q,fd)
         
         
-    def sarsa(self,alpha,lamda,episod_num):
+    def sarsa(self,alpha,lamda,episod_num,on_policy=True):
         while self.episod < episod_num:
             iteration = 0
             observation = self.env.reset()
@@ -103,17 +108,22 @@ class mc_sarsa:
                 DISCRETE_OBSERVATION_SPACE_MAX,\
                 ACTION_NUM)),\
                 columns=ACTIONS) 
-            if self.episod % 5 ==0:
+            if self.episod % 10 ==0:
                 self.e = self.e * self.e
                 
             while True:
-                observation_prime, r, done, info = self.env.step(a)
+                observation_prime, r, done, info = self.env.step(a)                
                 #self.env.render()
                 s_prime_discrete = convert_to_flat(convert_to_discrete_state(observation_prime,self.discrete_space))
-                print s_prime_discrete
                 a_prime  = choice_gready(self.Q,s_prime_discrete,self.e)
-                delta = r + self.Q.ix[s_prime_discrete,a_prime] - \
-                    self.Q.ix[s_discrete,a]
+                
+                if on_policy:
+                    delta = r + self.Q.ix[s_prime_discrete,a_prime] - \
+                        self.Q.ix[s_discrete,a]
+                else:#off policy Q learning:
+                    delta = r + get_max_q_value(self.Q, s_prime_discrete) - \
+                        self.Q.ix[s_discrete,a]                  
+                    
                 E.ix[s_discrete,a] = E.ix[s_discrete,a] + 1
                 for i in self.Q.index:
                     for j in self.Q.columns:
@@ -125,19 +135,19 @@ class mc_sarsa:
                 self.df.loc[self.episod] = [iteration]
                 if done:
                     print "Episode %d is finishing in iteration: %d, e:%f" % (self.episod,iteration,self.e)
-                    break
+                    break               
                
             self.episod += 1
         return self.df
         
 def full_main():
     g = mc_sarsa()
-    df = g.sarsa(alpha=0.1,lamda=0.1,episod_num=600)
-    g.save_q(fname='C:\\Users\\yonic\\projects\\cart_pole\\q.bin')
+    df = g.sarsa(alpha=0.1,lamda=0.5,episod_num=200,on_policy=False)
+    g.save_q(fname='q.bin')
     return g
 
 def part_main(g,episodes=100):
-    return g.sarsa(alpha=0.1,lamda=0.1,episod_num=episodes)
+    return g.sarsa(alpha=0.1,lamda=0.5,episod_num=episodes)
 
 def test_q(Q):
     env = gym.make('CartPole-v0')
